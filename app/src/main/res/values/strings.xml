@@ -2,4 +2,7 @@
     <string name="app_name">BellMusic</string>
     <string name="landing_name">Music List</string>
     <string name="add_music_name">Add Music</string>
+    <string name="download">download</string>
+    <string name="url_err_msg1">* Invalid Url Format</string>
+    <string name="url_err_msg2">* Cannot find Video</string>
 </resources>
