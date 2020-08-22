@@ -1,6 +1,8 @@
 package com.example.bellmusic;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
+import android.media.MediaPlayer;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -14,6 +16,9 @@ public class MainActivity extends AppCompatActivity {
 
     LinearLayout list;
     File music_dir;
+
+    @SuppressLint("StaticFieldLeak")
+    public static MediaPlayer player;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -50,12 +55,14 @@ public class MainActivity extends AppCompatActivity {
             first = false;
 
             // add on click listener
-            entry.setOnClickListener(view -> new Thread(() -> onEntryClick(entry_dir.getPath())).start());
+            entry.setOnClickListener(view -> onEntryClick(entry_dir.getPath()));
         }
     }
 
     private void onEntryClick(String dir){
-        System.out.println(dir);
+        Intent intent = new Intent(this, MusicPlayer.class);
+        intent.putExtra("entry", dir);
+        startActivity(intent);
     }
 
     public void loadAddMusic(View view){
