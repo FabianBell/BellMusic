@@ -1,18 +1,19 @@
 package com.example.bellmusic;
 
-import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.TextView;
+import android.widget.LinearLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.bellmusic.Dialog.OptionDialog;
-
+import java.io.File;
 import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity {
+
+    LinearLayout list;
+    File music_dir;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -20,33 +21,45 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         Objects.requireNonNull(getSupportActionBar()).setTitle(R.string.landing_name);
+
+        list = findViewById(R.id.music_list);
+        music_dir = new File(getFilesDir() + File.separator + "music");
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        list.removeAllViews();
+        new Thread(this::loadEntries).start();
+    }
+
+    private void loadEntries(){
+        if (!music_dir.exists()){
+            return;
+        }
+        File[] entry_dirs = music_dir.listFiles();
+        assert entry_dirs != null;
+        boolean first = true;
+        for (File entry_dir : entry_dirs){
+            if (!first){
+                View line = Utils.buildSeparator(this);
+                runOnUiThread(() -> list.addView(line));
+            }
+            View entry = Utils.buildEntry(this, entry_dir);
+            runOnUiThread(() -> list.addView(entry));
+            first = false;
+
+            // add on click listener
+            entry.setOnClickListener(view -> new Thread(() -> onEntryClick(entry_dir.getPath())).start());
+        }
+    }
+
+    private void onEntryClick(String dir){
+        System.out.println(dir);
     }
 
     public void loadAddMusic(View view){
         Intent intent = new Intent(this, AddMusic.class);
         startActivity(intent);
-    }
-
-    @SuppressLint("InflateParams")
-    public void test(View b_view){
-        OptionDialog dialog = new OptionDialog(
-                view -> {
-                    TextView title = view.findViewById(R.id.entry_title);
-                    title.setText("TEST TITLE");
-                    TextView author = view.findViewById(R.id.entry_author);
-                    author.setText("Fabian Bell");
-                    return view;
-                },
-                inp -> {
-                    System.out.println("NO");
-                    return null;
-                    },
-                inp -> {
-                    System.out.println("Yes");
-                    return null;
-                    },
-                R.string.add_new_song_popup_title,
-                R.layout.music_entry);
-        dialog.show(getSupportFragmentManager(), "download dialog");
     }
 }

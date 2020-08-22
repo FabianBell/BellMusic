@@ -14,8 +14,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.bellmusic.Dialog.OptionDialog;
-import com.example.bellmusic.utils.Utils;
 import com.github.kiulian.downloader.OnYoutubeDownloadListener;
 import com.github.kiulian.downloader.YoutubeException;
 import com.github.kiulian.downloader.model.VideoDetails;
@@ -178,6 +176,8 @@ public class AddMusic extends AppCompatActivity {
         // download audio
         try {
             video.downloadAsync(format, target_dir, new OnYoutubeDownloadListener() {
+
+                // TODO add time estimation
                 @Override
                 public void onDownloading(int p) {
                     runOnUiThread(() -> progress.setProgress(p));

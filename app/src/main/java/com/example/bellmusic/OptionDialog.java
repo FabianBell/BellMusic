@@ -1,4 +1,4 @@
-package com.example.bellmusic.Dialog;
+package com.example.bellmusic;
 
 import android.app.AlertDialog.Builder;
 import android.app.Dialog;
