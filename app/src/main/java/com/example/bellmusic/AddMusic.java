@@ -1,19 +1,33 @@
 package com.example.bellmusic;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.os.Bundle;
+import android.view.MenuItem;
 import android.view.View;
+import android.widget.ImageView;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.bellmusic.Dialog.OptionDialog;
+import com.example.bellmusic.utils.Utils;
+import com.github.kiulian.downloader.OnYoutubeDownloadListener;
 import com.github.kiulian.downloader.YoutubeException;
+import com.github.kiulian.downloader.model.VideoDetails;
 import com.github.kiulian.downloader.model.YoutubeVideo;
 import com.github.kiulian.downloader.model.formats.AudioFormat;
 
+import org.json.simple.JSONObject;
+
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -22,9 +36,23 @@ import java.util.regex.Pattern;
 
 public class AddMusic extends AppCompatActivity {
 
-    Pattern url_pattern;
+    private Pattern url_pattern;
 
     private static final List<String> audio_rank = Arrays.asList("high", "medium", "low");
+
+    private ProgressBar loading;
+    private ProgressBar progress;
+
+    // TODO check if stop interrupts the download
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            finish();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -38,10 +66,106 @@ public class AddMusic extends AppCompatActivity {
         bar.setDisplayHomeAsUpEnabled(true);
 
         url_pattern = Pattern.compile("https://www\\.youtube\\.com/watch\\?v=(?<code>[^&]*)(&\\w*)*");
+
+        loading = findViewById(R.id.add_music_loading);
+        progress = findViewById(R.id.add_music_progress);
     }
 
-    private Void onDownload(YoutubeVideo video) {
+    private Void onReady(YoutubeVideo video) {
+        // deactivate loading
+        runOnUiThread(() -> loading.setVisibility(View.GONE));
+
+        // check available audio formats
         List<AudioFormat> formats = video.audioFormats();
+
+        File audio_dir = new File(getFilesDir().getPath() + File.separator + "music");
+        if (!audio_dir.exists() && !audio_dir.mkdir()){
+            throw new RuntimeException("Cannot crate dir at " + audio_dir.getPath());
+        }
+
+        VideoDetails details = video.details();
+
+        // check and prepare target space on device
+        File target_dir = new File(audio_dir.getPath() + File.separator + details.videoId());
+        if (target_dir.exists()){
+            OptionDialog dialog = new OptionDialog(
+                    view -> {
+                        TextView text = view.findViewById(R.id.fragment_text);
+                        text.setText(R.string.double_entry);
+                        return view;
+                    },
+                    null, Utils::nothing, R.string.alert, R.layout.smiple_text,
+                    R.string.question_ok, -1);
+            dialog.show_dialog(this);
+            return null;
+        }
+        if (!target_dir.mkdir()){
+            throw new RuntimeException("Cannot create dir at " + target_dir.getPath());
+        }
+
+        // download thumbnail
+        Bitmap thumbnail = downloadDetails(details, target_dir);
+
+        OptionDialog dialog = new OptionDialog(
+                view -> {
+                    // build entry
+                    TextView title = view.findViewById(R.id.entry_title);
+                    title.setText(details.title());
+                    TextView author = view.findViewById(R.id.entry_author);
+                    author.setText(details.author());
+                    ImageView img = view.findViewById(R.id.entry_thumbnail);
+                    img.setImageBitmap(thumbnail);
+                    TextView time = view.findViewById(R.id.entry_time);
+                    time.setText(Utils.secToTime(details.lengthSeconds()));
+                    return view;
+                },
+                inp -> {
+                    // delete target directory
+                    Utils.deleteDir(target_dir);
+                    return null;
+                },
+                inp -> {
+                    // start audio download
+                    download_audio(formats, video, target_dir);
+                    return null;
+                }, R.string.add_new_song_popup_title, R.layout.music_entry
+        );
+        dialog.show_dialog(this);
+
+        return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Bitmap downloadDetails(VideoDetails details, File target_dir){
+        // download thumbnail
+        String thumbnail_url = details.thumbnails().get(0);
+        String thumbnail_path = target_dir.getPath() + File.separator + "thumbnail";
+        Utils.downloadFromURL(thumbnail_url, thumbnail_path);
+        Bitmap thumbnail = BitmapFactory.decodeFile(thumbnail_path);
+
+        // store meta data
+        JSONObject meta_data = new JSONObject();
+        meta_data.put("title", details.title());
+        meta_data.put("author", details.author());
+        meta_data.put("length", details.lengthSeconds());
+        try {
+            Files.write(Paths.get(target_dir.getPath() + File.separator + "meta_data"),
+                    meta_data.toJSONString().getBytes());
+        } catch (IOException e) {
+            onDownloadError(e);
+        }
+        return thumbnail;
+    }
+
+    private void download_audio(List<AudioFormat> formats, YoutubeVideo video, File target_dir){
+        // activate loading and deactivate other elements
+        runOnUiThread(() -> {
+            progress.setVisibility(View.VISIBLE);
+            findViewById(R.id.url).setVisibility(View.GONE);
+            findViewById(R.id.download_url).setVisibility(View.GONE);
+        });
+
+        // select audio quality
         Optional<AudioFormat> o_format = formats.stream().reduce((f1, f2) ->
                 audio_rank.indexOf(
                         f1.audioQuality().name()) > audio_rank.indexOf(f2.audioQuality().name())
@@ -50,23 +174,46 @@ public class AddMusic extends AppCompatActivity {
             throw new RuntimeException("Unknown Audio Format");
         }
         AudioFormat format = o_format.get();
-        File audio_dir = new File(getFilesDir().getPath() + File.separator + "music");
-        if (!audio_dir.exists() && !audio_dir.mkdir()){
-            throw new RuntimeException("Cannot crate dir at " + audio_dir.getPath());
-        }
+
+        // download audio
         try {
-            System.out.println("Start download");
-            // TODO check if path exists
-            File audio_file = video.download(format, audio_dir);
-            System.out.println(audio_file.getAbsolutePath());
+            video.downloadAsync(format, target_dir, new OnYoutubeDownloadListener() {
+                @Override
+                public void onDownloading(int p) {
+                    runOnUiThread(() -> progress.setProgress(p));
+                }
+
+                @Override
+                public void onFinished(File file) {
+                    // rename to default name
+                    if (!file.renameTo(new File(target_dir + File.separator + "audio"))){
+                        throw new RuntimeException("Cannot rename file from " + file.getName() + " to audio");
+                    }
+                    // terminate activity
+                    terminate();
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    onDownloadError(throwable);
+                }
+            });
         } catch (IOException | YoutubeException e) {
-            e.printStackTrace();
-            throw new RuntimeException("Cannot download video");
+            onDownloadError(e);
         }
-        return null;
+    }
+
+    private void terminate(){
+        runOnUiThread(this::finish);
+    }
+
+    private void onDownloadError(Throwable e){
+        e.printStackTrace();
+        throw new RuntimeException("Cannot download video");
     }
 
     private Void onError(Exception e){
+        runOnUiThread(() -> loading.setVisibility(View.GONE));
         e.printStackTrace();
         TextView err_field = findViewById(R.id.err_msg);
         err_field.setText(R.string.url_err_msg2);
@@ -88,10 +235,11 @@ public class AddMusic extends AppCompatActivity {
 
         // get video information
         Thread downloader = new Thread(new Downloader(
-                this::onDownload,
+                this::onReady,
                 this::onError,
                 video_code
         ));
+        loading.setVisibility(View.VISIBLE);
         downloader.start();
     }
 }

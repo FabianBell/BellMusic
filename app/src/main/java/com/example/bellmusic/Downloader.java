@@ -1,12 +1,15 @@
 package com.example.bellmusic;
 
 
+import android.view.View;
+
 import com.github.kiulian.downloader.YoutubeDownloader;
 import com.github.kiulian.downloader.YoutubeException;
 import com.github.kiulian.downloader.model.YoutubeVideo;
 
 public class Downloader implements Runnable {
 
+    // TODO include Downloader in AddMusic
     private Callback<YoutubeVideo, Void> on_ready;
     private Callback<Exception, Void> on_error;
     private String video_id;

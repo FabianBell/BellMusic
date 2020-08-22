@@ -5,4 +5,10 @@
     <string name="download">download</string>
     <string name="url_err_msg1">* Invalid Url Format</string>
     <string name="url_err_msg2">* Cannot find Video</string>
+    <string name="add_new_song_popup_title">New Song</string>
+    <string name="question_yes">Yes</string>
+    <string name="question_no">No</string>
+    <string name="question_ok">OK</string>
+    <string name="alert">Attention</string>
+    <string name="double_entry">The Song already exists in your list</string>
 </resources>
