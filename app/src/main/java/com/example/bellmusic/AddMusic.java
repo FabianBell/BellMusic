@@ -15,6 +15,7 @@ import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.github.kiulian.downloader.OnYoutubeDownloadListener;
+import com.github.kiulian.downloader.YoutubeDownloader;
 import com.github.kiulian.downloader.YoutubeException;
 import com.github.kiulian.downloader.model.VideoDetails;
 import com.github.kiulian.downloader.model.YoutubeVideo;
@@ -63,13 +64,24 @@ public class AddMusic extends AppCompatActivity {
         bar.setHomeButtonEnabled(true);
         bar.setDisplayHomeAsUpEnabled(true);
 
-        url_pattern = Pattern.compile("https://www\\.youtube\\.com/watch\\?v=(?<code>[^&]*)(&\\w*)*");
+        //TODO: check pattern
+        url_pattern = Pattern.compile("https://www\\.youtube\\.com/watch\\?v=(?<code>[^&(http)\\s]*)");
 
         loading = findViewById(R.id.add_music_loading);
         progress = findViewById(R.id.add_music_progress);
     }
 
-    private Void onReady(YoutubeVideo video) {
+    private Void onReady(String video_id) {
+        // get video info
+        YoutubeDownloader downloader = new YoutubeDownloader();
+        YoutubeVideo video;
+        try {
+            video = downloader.getVideo(video_id);
+        } catch (YoutubeException e) {
+            this.onError(e);
+            return null;
+        }
+
         // deactivate loading
         runOnUiThread(() -> loading.setVisibility(View.GONE));
 
@@ -212,17 +224,15 @@ public class AddMusic extends AppCompatActivity {
         throw new RuntimeException("Cannot download video");
     }
 
-    private Void onError(Exception e){
+    private void onError(Exception e){
         runOnUiThread(() -> loading.setVisibility(View.GONE));
         e.printStackTrace();
         TextView err_field = findViewById(R.id.err_msg);
         err_field.setText(R.string.url_err_msg2);
-        return null;
     }
 
     public void download(View view){
         // parse url
-        // TODO ignore double urls
         TextView url_field = findViewById(R.id.url);
         String url = url_field.getText().toString();
         Matcher matcher = url_pattern.matcher(url);
@@ -232,13 +242,10 @@ public class AddMusic extends AppCompatActivity {
             return;
         }
         String video_code = matcher.group("code");
+        System.out.println("DEBUG: " + video_code);
 
         // get video information
-        Thread downloader = new Thread(new Downloader(
-                this::onReady,
-                this::onError,
-                video_code
-        ));
+        Thread downloader = new Thread(new BackgroundThread<>(this::onReady, video_code));
         loading.setVisibility(View.VISIBLE);
         downloader.start();
     }

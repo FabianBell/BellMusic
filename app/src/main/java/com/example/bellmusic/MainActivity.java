@@ -19,6 +19,7 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("StaticFieldLeak")
     public static MediaPlayer player;
+    public static String entry_path; // used to identify played song
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

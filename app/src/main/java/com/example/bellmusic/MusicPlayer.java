@@ -13,7 +13,6 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.File;
-import java.net.URI;
 import java.util.Objects;
 
 public class MusicPlayer extends AppCompatActivity {
@@ -34,15 +33,17 @@ public class MusicPlayer extends AppCompatActivity {
         img_view.setImageBitmap(img);
 
         // load song
-        // TODO check if same song
-        Uri song = Uri.fromFile(new File(entry_path + File.separator + "audio"));
-        if (MainActivity.player != null && MainActivity.player.isPlaying()){
-            MainActivity.player.stop();
+        if (MainActivity.entry_path == null || !MainActivity.entry_path.equals(entry_path)) {
+            Uri song = Uri.fromFile(new File(entry_path + File.separator + "audio"));
+            if (MainActivity.player != null && MainActivity.player.isPlaying()) {
+                MainActivity.player.stop();
+            }
+            player = MediaPlayer.create(getApplicationContext(), song);
+            MainActivity.player = player;
+            MainActivity.entry_path = entry_path;
+            player.start();
+            start_pause_button = findViewById(R.id.start_pause);
         }
-        player = MediaPlayer.create(getApplicationContext(), song);
-        MainActivity.player = player;
-        player.start();
-        start_pause_button = findViewById(R.id.start_pause);
     }
 
     public void onStartPause(View view){
